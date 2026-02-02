@@ -1,8 +1,8 @@
 'use client';
 import React from 'react';
-import { useGhostStore, ERROR_DOMAINS } from '@/store/useGhostStore';
-import { Skull, Swords, Trophy, Zap, RotateCcw } from 'lucide-react';
-import { motion } from 'motion/react';
+import { useGhostStore, ERROR_DOMAINS, getNextRank } from '@/store/useGhostStore';
+import { Skull, Swords, Trophy, Zap, RotateCcw, Sparkles } from 'lucide-react';
+import { motion, AnimatePresence } from 'motion/react';
 
 export const ArenaSidebar: React.FC = () => {
   const activeDomain = useGhostStore((s) => s.activeDomain);
@@ -16,24 +16,76 @@ export const ArenaSidebar: React.FC = () => {
   const stability = useGhostStore((s) => s.stability);
   const reset = useGhostStore((s) => s.reset);
   const isCollapsed = useGhostStore((s) => s.isCollapsed);
+  const currentRank = useGhostStore((s) => s.currentRank);
+  const activateAbility = useGhostStore((s) => s.activateAbility);
+  const abilityActive = useGhostStore((s) => s.abilityActive);
 
   const domains = Object.values(ERROR_DOMAINS);
-  const currentDomainData = ERROR_DOMAINS[activeDomain];
+  const nextRank = getNextRank(currentRank);
 
   // XP progress for current level
   const xpForCurrentLevel = Math.floor(100 * Math.pow(1.5, playerLevel - 1));
   const xpForNextLevel = Math.floor(100 * Math.pow(1.5, playerLevel));
   const xpProgress = ((playerXP - xpForCurrentLevel) / (xpForNextLevel - xpForCurrentLevel)) * 100;
 
+  // Progress to next rank
+  const rankProgress = nextRank 
+    ? ((shadowCount - currentRank.threshold) / (nextRank.threshold - currentRank.threshold)) * 100
+    : 100;
+
   return (
-    <div className="flex flex-col gap-6 p-4 border-r border-necro-purple/30 bg-black/60 backdrop-blur-xl min-w-[260px] max-w-[280px] relative z-20">
+    <div className="flex flex-col gap-4 p-4 border-r border-necro-purple/30 bg-black/60 backdrop-blur-xl min-w-[260px] max-w-[280px] relative z-20">
       {/* Title */}
       <div className="flex items-center gap-3">
         <Skull className="text-necro-purple w-8 h-8" />
         <div>
           <h1 className="text-xl font-black tracking-wider text-necro-light">SOLO_DEBUGGER</h1>
-          <span className="text-[10px] tracking-[0.3em] text-necro-purple/70">SHADOW MONARCH</span>
+          <span className="text-[10px] tracking-[0.3em]" style={{ color: currentRank.color }}>
+            {currentRank.icon} {currentRank.name}
+          </span>
         </div>
+      </div>
+
+      {/* Rank Progress */}
+      <div className="p-3 border bg-black/40" style={{ borderColor: `${currentRank.color}40` }}>
+        <div className="flex justify-between items-center mb-2">
+          <span className="text-xs font-bold tracking-widest" style={{ color: currentRank.color }}>
+            {currentRank.icon} {currentRank.name}
+          </span>
+          {nextRank && (
+            <span className="text-[10px] text-necro-purple/50">
+              → {nextRank.icon} {nextRank.threshold - shadowCount} more
+            </span>
+          )}
+        </div>
+        <div className="w-full h-2 bg-necro-void border border-necro-purple/30 overflow-hidden">
+          <motion.div
+            className="h-full"
+            style={{ backgroundColor: currentRank.color }}
+            animate={{ width: `${Math.min(100, rankProgress)}%` }}
+            transition={{ duration: 0.3 }}
+          />
+        </div>
+        <div className="mt-2 text-[10px] opacity-60" style={{ color: currentRank.color }}>
+          {currentRank.abilityDescription}
+        </div>
+        
+        {/* Ability Button (for Monarch) */}
+        {currentRank.ability === 'domainExpansion' && (
+          <motion.button
+            onClick={activateAbility}
+            disabled={abilityActive}
+            whileHover={{ scale: abilityActive ? 1 : 1.02 }}
+            whileTap={{ scale: abilityActive ? 1 : 0.95 }}
+            className={`w-full mt-2 py-2 text-xs font-black uppercase tracking-widest border transition-all ${
+              abilityActive
+                ? 'bg-yellow-500/20 text-yellow-500 border-yellow-500/50 cursor-not-allowed'
+                : 'bg-yellow-500/10 text-yellow-500 border-yellow-500 hover:bg-yellow-500 hover:text-black shadow-[0_0_20px_rgba(251,191,36,0.3)]'
+            }`}
+          >
+            {abilityActive ? '⚡ DOMAIN ACTIVE' : '👑 DOMAIN EXPANSION'}
+          </motion.button>
+        )}
       </div>
 
       {/* Domain Selection */}
@@ -48,7 +100,7 @@ export const ArenaSidebar: React.FC = () => {
               onClick={() => setDomain(domain.id)}
               whileHover={{ scale: 1.05 }}
               whileTap={{ scale: 0.95 }}
-              className={`p-3 text-xs font-bold uppercase tracking-wide border transition-all duration-200 ${
+              className={`p-2 text-xs font-bold uppercase tracking-wide border transition-all duration-200 ${
                 activeDomain === domain.id
                   ? 'border-current bg-current/20 shadow-[0_0_20px_currentColor]'
                   : 'border-necro-purple/30 bg-black/40 hover:border-current hover:bg-current/10'
@@ -56,7 +108,7 @@ export const ArenaSidebar: React.FC = () => {
               style={{ color: domain.color }}
             >
               <span className="text-lg">{domain.icon}</span>
-              <div className="mt-1">{domain.name}</div>
+              <div className="mt-1 text-[10px]">{domain.name}</div>
             </motion.button>
           ))}
         </div>
@@ -84,49 +136,36 @@ export const ArenaSidebar: React.FC = () => {
       </div>
 
       {/* Player Stats */}
-      <div className="flex flex-col gap-3">
+      <div className="flex flex-col gap-2">
         <span className="text-xs font-bold tracking-widest text-necro-purple/80 flex items-center gap-2">
           <Trophy size={14} /> HUNTER STATS
         </span>
 
-        {/* Level */}
+        {/* Level & XP */}
         <div className="flex justify-between items-center">
-          <span className="text-xs text-necro-purple/70">LEVEL</span>
-          <span className="text-xl font-black text-necro-light">{playerLevel}</span>
+          <span className="text-xs text-necro-purple/70">LEVEL {playerLevel}</span>
+          <span className="text-xs text-necro-purple/50">{playerXP} XP</span>
         </div>
-
-        {/* XP Bar */}
-        <div className="w-full h-2 bg-necro-void border border-necro-purple/30 overflow-hidden">
+        <div className="w-full h-1.5 bg-necro-void border border-necro-purple/30 overflow-hidden">
           <motion.div
             className="h-full bg-gradient-to-r from-necro-purple to-necro-light"
-            initial={{ width: 0 }}
             animate={{ width: `${Math.max(0, Math.min(100, xpProgress))}%` }}
             transition={{ duration: 0.3 }}
           />
         </div>
-        <div className="text-[10px] text-necro-purple/50 text-right">{playerXP} XP</div>
 
-        {/* Shadow Count */}
-        <div className="flex justify-between items-center">
-          <span className="text-xs text-necro-purple/70">SHADOWS</span>
-          <span className="text-xl font-black" style={{ color: currentDomainData.color }}>
-            {shadowCount}
-          </span>
-        </div>
-
-        {/* Stability */}
-        <div className="flex justify-between items-center">
-          <span className="text-xs text-necro-purple/70">STABILITY</span>
-          <span className={`text-xl font-black ${stability < 30 ? 'text-red-500 animate-pulse' : 'text-necro-light'}`}>
-            {stability.toFixed(0)}%
-          </span>
-        </div>
-        <div className="w-full h-1 bg-necro-void border border-necro-purple/30 overflow-hidden">
-          <motion.div
-            className={`h-full ${stability < 30 ? 'bg-red-500' : 'bg-necro-purple'}`}
-            animate={{ width: `${stability}%` }}
-            transition={{ duration: 0.3 }}
-          />
+        {/* Shadow Count & Stability Row */}
+        <div className="flex gap-2 mt-1">
+          <div className="flex-1 p-2 bg-black/40 border border-necro-purple/20 text-center">
+            <div className="text-[10px] text-necro-purple/50">SHADOWS</div>
+            <div className="text-lg font-black" style={{ color: currentRank.color }}>{shadowCount}</div>
+          </div>
+          <div className="flex-1 p-2 bg-black/40 border border-necro-purple/20 text-center">
+            <div className="text-[10px] text-necro-purple/50">STABILITY</div>
+            <div className={`text-lg font-black ${stability < 30 ? 'text-red-500 animate-pulse' : 'text-necro-light'}`}>
+              {stability.toFixed(0)}%
+            </div>
+          </div>
         </div>
       </div>
 

@@ -2,6 +2,72 @@
 import { create } from 'zustand';
 
 // ============================================
+// RANK SYSTEM - The Path of the Shadow Monarch
+// ============================================
+export interface Rank {
+  id: string;
+  name: string;
+  threshold: number;
+  color: string;
+  icon: string;
+  ability: string;
+  abilityDescription: string;
+}
+
+export const RANKS: Rank[] = [
+  {
+    id: 'hunter',
+    name: 'SHADOW HUNTER',
+    threshold: 0,
+    color: '#9ca3af', // Gray
+    icon: '🗡️',
+    ability: 'none',
+    abilityDescription: 'No special abilities. Prove your worth.',
+  },
+  {
+    id: 'slayer',
+    name: 'ERROR SLAYER',
+    threshold: 10,
+    color: '#22c55e', // Green
+    icon: '⚔️',
+    ability: 'timeExtend',
+    abilityDescription: '+1s error timeout. Errors last longer before escaping.',
+  },
+  {
+    id: 'necromancer',
+    name: 'NECROMANCER',
+    threshold: 25,
+    color: '#a855f7', // Purple
+    icon: '💀',
+    ability: 'shadowStrike',
+    abilityDescription: 'Shadow Strike: Click shadows to defeat nearby errors.',
+  },
+  {
+    id: 'monarch',
+    name: 'SHADOW MONARCH',
+    threshold: 60,
+    color: '#fbbf24', // Gold
+    icon: '👑',
+    ability: 'domainExpansion',
+    abilityDescription: 'Domain Expansion: All errors auto-defeated for 5s. Ultimate power.',
+  },
+];
+
+export const getRankFromShadows = (shadowCount: number): Rank => {
+  for (let i = RANKS.length - 1; i >= 0; i--) {
+    if (shadowCount >= RANKS[i].threshold) {
+      return RANKS[i];
+    }
+  }
+  return RANKS[0];
+};
+
+export const getNextRank = (currentRank: Rank): Rank | null => {
+  const idx = RANKS.findIndex(r => r.id === currentRank.id);
+  return idx < RANKS.length - 1 ? RANKS[idx + 1] : null;
+};
+
+// ============================================
 // DOMAIN CONFIGURATION - The Battlegrounds
 // ============================================
 export interface ErrorDomain {
@@ -119,11 +185,19 @@ interface ArenaState {
   isWaveActive: boolean;
   errorsPerWave: number;
   activeErrors: Ghost[]; // Errors currently on the battlefield
+  errorTimeout: number; // Base timeout in ms (can be extended by rank)
 
   // Player Stats
   playerXP: number;
   playerLevel: number;
   stability: number; // 0-100
+  currentRank: Rank;
+  previousRank: Rank | null; // For detecting rank-up events
+  justRankedUp: boolean;
+
+  // Abilities
+  abilityActive: boolean;
+  abilityEndTime: number;
 
   // Actions
   setDomain: (domain: string) => void;
@@ -133,6 +207,9 @@ interface ArenaState {
   missError: (ghostId: string) => void;
   updateGhosts: () => void;
   setCursor: (x: number, y: number) => void;
+  activateAbility: () => void;
+  shadowStrike: (ghostId: string) => void;
+  clearRankUp: () => void;
   reset: () => void;
 }
 
@@ -164,9 +241,15 @@ export const useGhostStore = create<ArenaState>((set, get) => ({
   isWaveActive: false,
   errorsPerWave: 3,
   activeErrors: [],
+  errorTimeout: 5000, // 5 seconds base
   playerXP: 0,
   playerLevel: 1,
   stability: 100,
+  currentRank: RANKS[0],
+  previousRank: null,
+  justRankedUp: false,
+  abilityActive: false,
+  abilityEndTime: 0,
 
   // Set active domain
   setDomain: (domain) => set({ activeDomain: domain }),
@@ -237,7 +320,16 @@ export const useGhostStore = create<ArenaState>((set, get) => ({
     const xpGain = 10 + state.currentWave * 2;
     const newXP = state.playerXP + xpGain;
     const newLevel = getLevelFromXP(newXP);
-    const isNowCollapsed = newShadowCount >= 50;
+    
+    // Check for rank up
+    const newRank = getRankFromShadows(newShadowCount);
+    const didRankUp = newRank.id !== state.currentRank.id;
+    
+    // Monarch state at 60 shadows
+    const isNowCollapsed = newShadowCount >= 60;
+    
+    // ERROR SLAYER ability: +1s timeout
+    const newTimeout = newRank.ability === 'timeExtend' ? 6000 : state.errorTimeout;
 
     // Check if wave is complete
     const remainingActive = state.activeErrors.filter((e) => e.id !== ghostId);
@@ -249,9 +341,13 @@ export const useGhostStore = create<ArenaState>((set, get) => ({
       activeErrors: remainingActive,
       playerXP: newXP,
       playerLevel: newLevel,
-      stability: Math.min(100, state.stability + 1), // Defeating errors helps stability
+      stability: Math.min(100, state.stability + 1),
       isCollapsed: isNowCollapsed,
       isWaveActive: !waveComplete,
+      currentRank: newRank,
+      previousRank: didRankUp ? state.currentRank : state.previousRank,
+      justRankedUp: didRankUp,
+      errorTimeout: newTimeout,
     };
   }),
 
@@ -305,6 +401,68 @@ export const useGhostStore = create<ArenaState>((set, get) => ({
 
   setCursor: (x, y) => set({ cursor: { x, y } }),
 
+  // Activate special ability based on current rank
+  activateAbility: () => {
+    const state = get();
+    const rank = state.currentRank;
+    
+    if (rank.ability === 'domainExpansion' && !state.abilityActive) {
+      // Domain Expansion: Auto-defeat all errors for 5 seconds
+      set({ 
+        abilityActive: true, 
+        abilityEndTime: Date.now() + 5000 
+      });
+      
+      // Auto-defeat all current errors
+      const { activeErrors, defeatError } = get();
+      activeErrors.forEach(error => {
+        defeatError(error.id);
+      });
+      
+      // Clear ability after 5 seconds
+      setTimeout(() => {
+        set({ abilityActive: false, abilityEndTime: 0 });
+      }, 5000);
+    }
+  },
+
+  // Shadow Strike: Click a shadow to defeat nearby errors (Necromancer ability)
+  shadowStrike: (ghostId) => set((state) => {
+    if (state.currentRank.ability !== 'shadowStrike') return {};
+    
+    const shadow = state.ghosts.find(g => g.id === ghostId);
+    if (!shadow) return {};
+    
+    // Find errors within 150px of the shadow
+    const nearbyErrors = state.activeErrors.filter(error => {
+      const dist = Math.hypot(error.x - shadow.x, error.y - shadow.y);
+      return dist < 150;
+    });
+    
+    if (nearbyErrors.length === 0) return {};
+    
+    // Defeat the first nearby error
+    const targetError = nearbyErrors[0];
+    const shadowFromError: Ghost = { ...targetError, isActive: false };
+    const newShadowCount = state.shadowCount + 1;
+    const newRank = getRankFromShadows(newShadowCount);
+    const didRankUp = newRank.id !== state.currentRank.id;
+    
+    return {
+      ghosts: [...state.ghosts, shadowFromError],
+      shadowCount: newShadowCount,
+      activeErrors: state.activeErrors.filter(e => e.id !== targetError.id),
+      playerXP: state.playerXP + 15, // Bonus XP for ability use
+      currentRank: newRank,
+      previousRank: didRankUp ? state.currentRank : state.previousRank,
+      justRankedUp: didRankUp,
+      isCollapsed: newShadowCount >= 60,
+    };
+  }),
+
+  // Clear rank-up notification
+  clearRankUp: () => set({ justRankedUp: false }),
+
   reset: () => set({
     ghosts: [],
     shadowCount: 0,
@@ -312,8 +470,15 @@ export const useGhostStore = create<ArenaState>((set, get) => ({
     currentWave: 0,
     isWaveActive: false,
     activeErrors: [],
+    errorTimeout: 5000,
     playerXP: 0,
     playerLevel: 1,
     stability: 100,
+    currentRank: RANKS[0],
+    previousRank: null,
+    justRankedUp: false,
+    abilityActive: false,
+    abilityEndTime: 0,
   }),
 }));
+

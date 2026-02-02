@@ -1,5 +1,5 @@
 'use client';
-import React from 'react';
+import React, { useEffect } from 'react';
 import { useGhostStore } from '@/store/useGhostStore';
 import { ArenaSidebar } from './ArenaSidebar';
 import { ErrorSpawnZone } from './ErrorSpawnZone';
@@ -7,11 +7,24 @@ import { GhostOverlay } from './GhostOverlay';
 import { PlayerHUD } from './PlayerHUD';
 import { TerminalLogs } from './TerminalLogs';
 import { motion, AnimatePresence } from 'motion/react';
+import { Crown, Skull, Swords, Zap } from 'lucide-react';
 
 export const Arena: React.FC = () => {
   const isCollapsed = useGhostStore((s) => s.isCollapsed);
   const stability = useGhostStore((s) => s.stability);
   const shadowCount = useGhostStore((s) => s.shadowCount);
+  const currentRank = useGhostStore((s) => s.currentRank);
+  const justRankedUp = useGhostStore((s) => s.justRankedUp);
+  const clearRankUp = useGhostStore((s) => s.clearRankUp);
+  const abilityActive = useGhostStore((s) => s.abilityActive);
+
+  // Auto-clear rank up notification after 3 seconds
+  useEffect(() => {
+    if (justRankedUp) {
+      const timer = setTimeout(() => clearRankUp(), 3000);
+      return () => clearTimeout(timer);
+    }
+  }, [justRankedUp, clearRankUp]);
 
   // Visual distortion based on stability
   const getDistortionStyle = () => {
@@ -36,6 +49,65 @@ export const Arena: React.FC = () => {
         }}
         transition={{ duration: 0.5 }}
       />
+
+      {/* Domain Expansion Active Effect */}
+      <AnimatePresence>
+        {abilityActive && (
+          <motion.div
+            initial={{ opacity: 0 }}
+            animate={{ opacity: 1 }}
+            exit={{ opacity: 0 }}
+            className="absolute inset-0 z-[60] pointer-events-none"
+          >
+            <div className="absolute inset-0 bg-gradient-radial from-yellow-500/20 via-purple-900/30 to-black/80" />
+            <motion.div
+              className="absolute inset-0 flex items-center justify-center"
+              animate={{ scale: [1, 1.1, 1], opacity: [0.5, 1, 0.5] }}
+              transition={{ duration: 1, repeat: Infinity }}
+            >
+              <div className="text-4xl md:text-6xl font-black text-yellow-500 tracking-widest">
+                ⚡ DOMAIN EXPANSION ⚡
+              </div>
+            </motion.div>
+          </motion.div>
+        )}
+      </AnimatePresence>
+
+      {/* Rank Up Notification */}
+      <AnimatePresence>
+        {justRankedUp && !isCollapsed && (
+          <motion.div
+            initial={{ opacity: 0, y: -100, scale: 0.8 }}
+            animate={{ opacity: 1, y: 0, scale: 1 }}
+            exit={{ opacity: 0, y: -50 }}
+            className="fixed top-20 left-1/2 -translate-x-1/2 z-[70] pointer-events-none"
+          >
+            <motion.div
+              className="px-8 py-6 border-2 bg-black/90 backdrop-blur-lg text-center"
+              style={{ borderColor: currentRank.color }}
+              animate={{
+                boxShadow: [
+                  `0 0 20px ${currentRank.color}`,
+                  `0 0 60px ${currentRank.color}`,
+                  `0 0 20px ${currentRank.color}`,
+                ],
+              }}
+              transition={{ duration: 1, repeat: Infinity }}
+            >
+              <div className="text-sm uppercase tracking-widest text-necro-purple/70 mb-2">
+                Rank Achieved
+              </div>
+              <div className="text-4xl font-black flex items-center justify-center gap-3" style={{ color: currentRank.color }}>
+                <span className="text-5xl">{currentRank.icon}</span>
+                {currentRank.name}
+              </div>
+              <div className="mt-3 text-sm opacity-60" style={{ color: currentRank.color }}>
+                {currentRank.abilityDescription}
+              </div>
+            </motion.div>
+          </motion.div>
+        )}
+      </AnimatePresence>
 
       {/* Low stability warning pulse */}
       <AnimatePresence>
@@ -89,13 +161,20 @@ export const Arena: React.FC = () => {
                 transition={{ delay: 0.5 }}
                 className="text-center"
               >
+                <motion.div
+                  className="text-6xl mb-4"
+                  animate={{ scale: [1, 1.2, 1], rotate: [0, 5, -5, 0] }}
+                  transition={{ duration: 2, repeat: Infinity }}
+                >
+                  👑
+                </motion.div>
                 <motion.h1
                   className="text-6xl md:text-9xl font-black text-necro-light mix-blend-difference text-center leading-none tracking-tighter"
                   animate={{
                     textShadow: [
-                      '0 0 20px #a855f7',
-                      '0 0 60px #a855f7',
-                      '0 0 20px #a855f7',
+                      '0 0 20px #fbbf24',
+                      '0 0 60px #fbbf24',
+                      '0 0 20px #fbbf24',
                     ],
                   }}
                   transition={{ duration: 2, repeat: Infinity }}
@@ -106,7 +185,7 @@ export const Arena: React.FC = () => {
                   initial={{ opacity: 0 }}
                   animate={{ opacity: 1 }}
                   transition={{ delay: 1 }}
-                  className="mt-8 text-necro-purple text-xl tracking-[0.5em] uppercase"
+                  className="mt-8 text-yellow-500 text-xl tracking-[0.5em] uppercase"
                 >
                   Shadow Monarch Awakened
                 </motion.p>

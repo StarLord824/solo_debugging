@@ -9,27 +9,31 @@ export const ErrorSpawnZone: React.FC = () => {
   const defeatError = useGhostStore((s) => s.defeatError);
   const missError = useGhostStore((s) => s.missError);
   const isWaveActive = useGhostStore((s) => s.isWaveActive);
+  const errorTimeout = useGhostStore((s) => s.errorTimeout);
+  const abilityActive = useGhostStore((s) => s.abilityActive);
 
-  // Auto-expire errors after 5 seconds (miss them)
+  // Auto-expire errors after timeout (miss them)
   useEffect(() => {
+    if (abilityActive) return; // Don't expire during Domain Expansion
+    
     const interval = setInterval(() => {
       const now = Date.now();
       activeErrors.forEach((error) => {
-        if (now - error.spawnTime > 5000) {
+        if (now - error.spawnTime > errorTimeout) {
           missError(error.id);
         }
       });
     }, 500);
 
     return () => clearInterval(interval);
-  }, [activeErrors, missError]);
+  }, [activeErrors, missError, errorTimeout, abilityActive]);
 
   return (
     <div className="absolute inset-0 pointer-events-none z-30">
       <AnimatePresence>
         {activeErrors.map((error) => {
           const timeAlive = Date.now() - error.spawnTime;
-          const progress = Math.min(timeAlive / 5000, 1); // 0 to 1 over 5 seconds
+          const progress = Math.min(timeAlive / errorTimeout, 1);
           const isUrgent = progress > 0.6;
 
           return (

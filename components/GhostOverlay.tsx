@@ -9,6 +9,11 @@ export const GhostOverlay: React.FC = () => {
   const setCursor = useGhostStore((state) => state.setCursor);
   const shadowCount = useGhostStore((state) => state.shadowCount);
   const isCollapsed = useGhostStore((state) => state.isCollapsed);
+  const currentRank = useGhostStore((state) => state.currentRank);
+  const shadowStrike = useGhostStore((state) => state.shadowStrike);
+  const activeErrors = useGhostStore((state) => state.activeErrors);
+
+  const canShadowStrike = currentRank.ability === 'shadowStrike' && activeErrors.length > 0;
 
   useEffect(() => {
     const handleMouseMove = (e: MouseEvent) => {
@@ -28,6 +33,12 @@ export const GhostOverlay: React.FC = () => {
     loop();
     return () => cancelAnimationFrame(animationFrameId);
   }, [updateGhosts]);
+
+  const handleShadowClick = (ghostId: string) => {
+    if (canShadowStrike) {
+      shadowStrike(ghostId);
+    }
+  };
 
   return (
     <div className="fixed inset-0 pointer-events-none z-50 overflow-hidden">
@@ -82,9 +93,21 @@ export const GhostOverlay: React.FC = () => {
         </svg>
       )}
 
+      {/* Shadow Strike hint */}
+      {canShadowStrike && (
+        <div className="fixed bottom-4 left-1/2 -translate-x-1/2 px-4 py-2 bg-purple-900/80 border border-necro-purple text-necro-light text-sm font-bold tracking-wide pointer-events-none z-[60]">
+          💀 NECROMANCER: Click shadows near errors to defeat them!
+        </div>
+      )}
+
       {/* Ghost Particles */}
       {ghosts.map((ghost) => (
-        <GhostParticle key={ghost.id} ghost={ghost} />
+        <GhostParticle 
+          key={ghost.id} 
+          ghost={ghost} 
+          onClick={canShadowStrike ? () => handleShadowClick(ghost.id) : undefined}
+          isClickable={canShadowStrike}
+        />
       ))}
     </div>
   );
