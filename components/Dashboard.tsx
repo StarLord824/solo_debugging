@@ -1,31 +1,34 @@
 'use client';
 import React, { useEffect, useState } from 'react';
-import { useSystemStore } from '@/store/useSystemStore';
+import { useEntropyStore } from '@/store/useEntropyStore';
+import { useServerMetrics } from '@/hooks/useServerMetrics';
 import { MetricChart } from './MetricChart';
 import { Terminal } from './Terminal';
 import { DriftingCard } from './DriftingCard';
+import { Sidebar } from './Sidebar';
 import { motion } from 'motion/react';
+import { Zap, Brain, Activity, Database, Cpu } from 'lucide-react';
 
 export const Dashboard: React.FC = () => {
-    const { stability, cpu, entropy, neuralLoad, tick, drainStability, reboot } = useSystemStore();
+    const { stability, entropy, logs, increaseEntropy, reboot } = useEntropyStore();
+    const { data, isError } = useServerMetrics(); // This drives the feedback loop
     const [mounted, setMounted] = useState(false);
 
     useEffect(() => {
         setMounted(true);
-        const interval = setInterval(tick, 800);
-        return () => clearInterval(interval);
-    }, [tick]);
+    }, []);
 
     if (!mounted) return null;
 
-    // Dynamic Filter Effects
+    // Derived visual severity
     const getContainerStyle = () => {
         if (stability >= 70) return {};
         
         const severity = 70 - stability; // 0 to 70
         return {
-            filter: `blur(${severity * 0.05}px) hue-rotate(${severity * 2}deg)`,
-            transform: `skewX(${severity * 0.1}deg) scale(${1 + severity * 0.001})`
+            backdropFilter: `blur(${severity * 0.1}px) contrast(${100 + severity * 2}%)`,
+            filter: `hue-rotate(${severity * 2}deg)`,
+            transform: `skewX(${severity * 0.05}deg) scale(${1 + severity * 0.001})`
         };
     };
 
@@ -33,97 +36,70 @@ export const Dashboard: React.FC = () => {
 
     return (
         <div 
-            className="min-h-screen bg-sys-dark text-sys-green overflow-hidden transition-all duration-300 ease-linear p-4 md:p-8 flex flex-col gap-4"
-            style={getContainerStyle()}
+             className="relative min-h-screen bg-sys-dark text-sys-green overflow-hidden flex"
         >
-            {/* Header */}
-            <DriftingCard className="flex border-b border-sys-green pb-4 justify-between items-center z-10 bg-black/80 p-4">
-                <div className="flex flex-col">
-                    <h1 className="text-4xl md:text-6xl font-black tracking-tighter">SYSCAP_CORE</h1>
-                    <span className="text-xs tracking-[0.5em] opacity-70">SENTIENT MONITORING SYSTEM</span>
-                </div>
-                <div className="flex flex-col items-end">
-                    <div className="text-xl font-bold">STATUS: {isCritical ? <span className="text-sys-red animate-pulse">CRITICAL FAILURE</span> : <span className="text-sys-green">OPERATIONAL</span>}</div>
-                    <div className="font-mono text-2xl">STABILITY: {stability.toFixed(1)}%</div>
-                </div>
-            </DriftingCard>
+             {/* Global Backdrop for Stability Effects */}
+             <div 
+                className="absolute inset-0 pointer-events-none z-0 transition-all duration-300"
+                style={getContainerStyle()}
+             />
 
-            <div className="flex-1 grid grid-cols-1 md:grid-cols-4 gap-4 relative z-0">
-                {/* Sidebar (Controls & Info) */}
-                <DriftingCard className="col-span-1 border border-sys-green/30 p-4 bg-black/60 flex flex-col gap-8 h-full">
-                    <div>
-                        <h2 className="text-lg border-b border-sys-green/50 mb-2">CONTROLS</h2>
-                        <div className="flex flex-col gap-4">
+            <Sidebar />
+
+            <div className="flex-1 flex flex-col p-4 md:p-8 relative z-10 gap-4">
+                {/* Header */}
+                <DriftingCard className="flex border-b border-sys-green pb-4 justify-between items-center bg-black/80 p-4">
+                    <div className="flex flex-col">
+                        <h1 className="text-4xl md:text-6xl font-black tracking-tighter flex items-center gap-4">
+                            SYSCAP_CORE <Zap className={isCritical ? "text-sys-red" : "text-sys-green"} />
+                        </h1>
+                        <span className="text-xs tracking-[0.5em] opacity-70">SENTIENT MONITORING SYSTEM</span>
+                    </div>
+                    <div className="flex flex-col items-end gap-2">
+                        <div className="text-xl font-bold">STATUS: {isCritical ? <span className="text-sys-red animate-pulse">CRITICAL FAILURE</span> : <span className="text-sys-green">OPERATIONAL</span>}</div>
+                        <div className="font-mono text-2xl">STABILITY: <span className={stability < 50 ? "text-sys-red" : "text-sys-green"}>{stability.toFixed(1)}%</span></div>
+                        <div className="flex gap-2">
                             <button 
-                                onClick={() => drainStability(15)}
-                                className="px-4 py-3 bg-sys-red/10 border border-sys-red text-sys-red hover:bg-sys-red hover:text-black transition-all font-bold uppercase tracking-widest active:scale-95"
+                                onClick={() => increaseEntropy(15)}
+                                className="px-4 py-2 text-xs bg-sys-red/10 border border-sys-red text-sys-red hover:bg-sys-red hover:text-black transition-all font-bold uppercase tracking-widest active:scale-95"
                             >
-                                INITIATE STRESS TEST
+                                STRESS TEST
                             </button>
                             <button 
                                 onClick={reboot}
-                                className="px-4 py-3 bg-sys-green/10 border border-sys-green text-sys-green hover:bg-sys-green hover:text-black transition-all font-bold uppercase tracking-widest active:scale-95"
+                                className="px-4 py-2 text-xs bg-sys-green/10 border border-sys-green text-sys-green hover:bg-sys-green hover:text-black transition-all font-bold uppercase tracking-widest active:scale-95"
                             >
-                                SYSTEM REBOOT
+                                REBOOT
                             </button>
                         </div>
                     </div>
-
-                    <div className="flex-1 font-mono text-xs opacity-70 flex flex-col gap-2">
-                        <h2 className="text-lg border-b border-sys-green/50 mb-2 font-sans">SERVER NODE_01</h2>
-                        <p>UPTIME: 14,023h</p>
-                        <p>TEMP: {50 + (100-stability)/2}°C</p>
-                        <p>FAN: {(100 + (100-stability)*100).toFixed(0)} RPM</p>
-                        <p>MEMORY: {stability > 50 ? 'OK' : 'CORRUPTED'}</p>
-                        <br/>
-                        <p className="break-all">{Array.from({length: 8}).map(() => Math.random().toString(16).substring(2)).join(' ')}</p>
-                    </div>
                 </DriftingCard>
 
-                {/* Main Content Areas */}
-                <div className="col-span-1 md:col-span-3 flex flex-col gap-4">
-                    {/* Charts Grid */}
-                    <div className="grid grid-cols-1 md:grid-cols-3 gap-4 h-64">
-                         <DriftingCard className="h-full">
-                             <MetricChart label="CPU LOAD" value={cpu} />
-                         </DriftingCard>
-                         <DriftingCard className="h-full">
-                             <MetricChart label="ENTROPY" value={entropy} color="bg-purple-500" />
-                         </DriftingCard>
-                         <DriftingCard className="h-full">
-                             <MetricChart label="NEURAL LOAD" value={neuralLoad} color="bg-cyan-500" />
-                         </DriftingCard>
-                    </div>
-                    
-                    {/* Visualizer / Emergent Behaviour Area */}
-                    <div className="flex-1 border border-sys-green/20 relative overflow-hidden min-h-[200px] flex items-center justify-center">
-                        {/* Background Noise Grid */}
-                        <div className="absolute inset-0 grid grid-cols-10 grid-rows-10 opacity-10 pointer-events-none">
-                            {Array.from({length: 100}).map((_, i) => (
-                                <div key={i} className="border border-sys-green/50"></div>
-                            ))}
-                        </div>
-                        
-                         {stability < 40 && (
-                            <motion.div 
-                                className="text-6xl font-black text-sys-red opacity-10 uppercase text-center"
-                                animate={{ 
-                                    scale: [1, 1.5, 1],
-                                    rotate: [0, 5, -5, 0],
-                                    opacity: [0.1, 0.3, 0.1]
-                                }}
-                                transition={{ duration: 0.5, repeat: Infinity }}
-                            >
-                                SYSTEM FAILURE
-                            </motion.div>
-                        )}
-                    </div>
-
+                {/* Main Grid */}
+                <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
+                    <DriftingCard className="h-48">
+                        <div className="flex items-center gap-2 mb-2 p-2 bg-black/40"><Cpu size={16}/> CPU LOAD</div>
+                        <MetricChart label="" value={data?.cpu || 0} />
+                    </DriftingCard>
+                    <DriftingCard className="h-48">
+                        <div className="flex items-center gap-2 mb-2 p-2 bg-black/40"><Database size={16}/> MEMORY</div>
+                        <MetricChart label="" value={data?.memory || 0} color="bg-cyan-500"/>
+                    </DriftingCard>
+                    <DriftingCard className="h-48">
+                         <div className="flex items-center gap-2 mb-2 p-2 bg-black/40"><Brain size={16}/> NEURAL SYNAPSE</div>
+                         <MetricChart label="" value={data?.neuralLoad || 0} color="bg-purple-500" />
+                    </DriftingCard>
+                    <DriftingCard className="h-48">
+                         <div className="flex items-center gap-2 mb-2 p-2 bg-black/40"><Activity size={16}/> ENTROPY VECTOR</div>
+                         <div className="h-full flex items-center justify-center text-4xl font-black text-sys-red">
+                             {(data?.entropyVector || 0).toFixed(2)}
+                         </div>
+                    </DriftingCard>
                 </div>
-            </div>
 
-            {/* Terminal at bottom */}
-            <Terminal />
+                {/* Error Log / Terminal */}
+                <Terminal />
+            </div>
             
             {/* Scanline overlay */}
             <div className="pointer-events-none fixed inset-0 z-50 bg-[linear-gradient(rgba(18,16,16,0)_50%,rgba(0,0,0,0.25)_50%),linear-gradient(90deg,rgba(255,0,0,0.06),rgba(0,255,0,0.02),rgba(0,0,255,0.06))] bg-[length:100%_4px,3px_100%] pointer-events-none" />

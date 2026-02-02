@@ -1,10 +1,10 @@
 'use client';
 import React, { useEffect, useRef } from 'react';
-import { useSystemStore } from '@/store/useSystemStore';
+import { useEntropyStore } from '@/store/useEntropyStore';
 
 export const Terminal: React.FC = () => {
-  const logs = useSystemStore((state) => state.logs);
-  const stability = useSystemStore((state) => state.stability);
+  const logs = useEntropyStore((state) => state.logs);
+  const stability = useEntropyStore((state) => state.stability);
   const bottomRef = useRef<HTMLDivElement>(null);
 
   useEffect(() => {

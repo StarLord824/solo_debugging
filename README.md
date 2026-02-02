@@ -1,36 +1,45 @@
-This is a [Next.js](https://nextjs.org) project bootstrapped with [`create-next-app`](https://nextjs.org/docs/app/api-reference/cli/create-next-app).
+# SYSCAP: The Sentient Server Room
 
-## Getting Started
+> "It signifies the beauty of entropy and emergence."
 
-First, run the development server:
+## What is it?
+**SYSCAP** is a self-aware DevOps dashboard that transitions from a rigid monitoring tool into a piece of generative art as it collapses.
 
-```bash
-npm run dev
-# or
-yarn dev
-# or
-pnpm dev
-# or
-bun dev
-```
+On the surface, it looks like a standard high-end interface for monitoring server clusters, CPU loads, and network stability. However, unlike a normal dashboard designed for 99.9% uptime, this system is designed to embrace its own failure.
 
-Open [http://localhost:3000](http://localhost:3000) with your browser to see the result.
+## The Philosophy
+In the world of tech, "breaking" is usually seen as a failure of logic. This project argues that a system only becomes "alive" and "surprising" when it moves past its programmed constraints and begins to behave unpredictably. It’s a digital *memento mori*—a reminder that there is structure and art even in the middle of a system collapse.
 
-You can start editing the page by modifying `app/page.tsx`. The page auto-updates as you edit the file.
+## The Degradation-to-Beauty Pipeline
 
-This project uses [`next/font`](https://nextjs.org/docs/app/building-your-application/optimizing/fonts) to automatically optimize and load [Geist](https://vercel.com/font), a new font family for Vercel.
+### 1. From Data to Expression
+At **100% stability**, the app is "boring" and functional. As it breaks, static data points (numbers and charts) begin to vibrate and move, turning a spreadsheet-like grid into a fluid, organic dance.
 
-## Learn More
+### 2. Visual Evolution
+"Errors" are used as creative inputs. Instead of showing a 404 page or a crash screen, the UI uses **CSS filters**, **Framer Motion**, and **TanStack Query** retries to "melt," "drift," and "skew," creating unique kaleidoscopic patterns that could never exist in a stable state.
 
-To learn more about Next.js, take a look at the following resources:
+### 3. The Sentience Pivot
+When the system reaches a **total collapse (Stability < 10%)**, it stops trying to be a tool and starts trying to communicate. The logs stop showing error codes and begin generating ASCII art and "neural pathways," suggesting that the "broken" machine has finally found its own voice.
 
-- [Next.js Documentation](https://nextjs.org/docs) - learn about Next.js features and API.
-- [Learn Next.js](https://nextjs.org/learn) - an interactive Next.js tutorial.
+## Tech Stack
+- **Next.js & React**: The core framework.
+- **Zustand (The Entropy Engine)**: Manages stability, entropy, and the feedback loops.
+- **TanStack Query (Data Simulation)**: Simulates network traffic, latency, and "packet loss" that worsens with entropy.
+- **Framer Motion**: Powers the drifting cards, vibration, and fluid layout shifts.
+- **Tailwind CSS**: High-contrast cyberpunk styling.
+- **Lucide React**: Technical iconography.
 
-You can check out [the Next.js GitHub repository](https://github.com/vercel/next.js) - your feedback and contributions are welcome!
+## How to Run
+1. Install dependencies:
+   ```bash
+   pnpm install
+   ```
+2. Start the development server:
+   ```bash
+   pnpm dev
+   ```
+3. Open [http://localhost:3000](http://localhost:3000).
 
-## Deploy on Vercel
-
-The easiest way to deploy your Next.js app is to use the [Vercel Platform](https://vercel.com/new?utm_medium=default-template&filter=next.js&utm_source=create-next-app&utm_campaign=create-next-app-readme) from the creators of Next.js.
-
-Check out our [Next.js deployment documentation](https://nextjs.org/docs/app/building-your-application/deploying) for more details.
+## Controls
+- **STRESS TEST**: Artificially inject entropy into the system. Watch the stability drop and the visuals degrade.
+- **REBOOT**: Reset the system state to 100% stability (if you can catch the button).
