@@ -1,106 +1,303 @@
+'use client';
 import { create } from 'zustand';
 
+// ============================================
+// DOMAIN CONFIGURATION - The Battlegrounds
+// ============================================
+export interface ErrorDomain {
+  id: string;
+  name: string;
+  icon: string;
+  color: string;
+  errors: string[];
+}
+
+export const ERROR_DOMAINS: Record<string, ErrorDomain> = {
+  frontend: {
+    id: 'frontend',
+    name: 'FRONTEND',
+    icon: '🖥️',
+    color: '#a855f7', // Purple
+    errors: [
+      'Hydration Mismatch',
+      'Cannot read undefined',
+      'Invalid hook call',
+      'Maximum update depth exceeded',
+      'Objects are not valid as React child',
+      'Each child must have unique key',
+      'useEffect missing dependency',
+      'Cannot update unmounted component',
+      'Too many re-renders',
+      'Minified React error #301',
+    ],
+  },
+  backend: {
+    id: 'backend',
+    name: 'BACKEND',
+    icon: '⚙️',
+    color: '#22c55e', // Green
+    errors: [
+      'ECONNREFUSED',
+      'ENOENT: no such file',
+      '500 Internal Server Error',
+      'TypeError: undefined is not a function',
+      'ReferenceError: x is not defined',
+      'SyntaxError: Unexpected token',
+      'ETIMEDOUT',
+      'EADDRINUSE: port already in use',
+      'JWT malformed',
+      'Unhandled promise rejection',
+    ],
+  },
+  database: {
+    id: 'database',
+    name: 'DATABASE',
+    icon: '🗄️',
+    color: '#3b82f6', // Blue
+    errors: [
+      'Deadlock detected',
+      'ORA-01017: invalid credentials',
+      'Duplicate key violation',
+      'Foreign key constraint failed',
+      'Connection pool exhausted',
+      'Query timeout exceeded',
+      'Table does not exist',
+      'Column ambiguously defined',
+      'Transaction aborted',
+      'Lock wait timeout',
+    ],
+  },
+  devops: {
+    id: 'devops',
+    name: 'DEVOPS',
+    icon: '🐳',
+    color: '#f97316', // Orange
+    errors: [
+      'OOMKilled',
+      'ImagePullBackOff',
+      'CrashLoopBackOff',
+      'Pod evicted',
+      'ErrImagePull',
+      'CreateContainerError',
+      'NodeNotReady',
+      'FailedScheduling',
+      'Liveness probe failed',
+      'Exit code 137',
+    ],
+  },
+};
+
+// ============================================
+// GHOST (Shadow) ENTITY
+// ============================================
 export interface Ghost {
   id: string;
   x: number;
   y: number;
-  vx?: number;
-  vy?: number;
+  vx: number;
+  vy: number;
   errorMsg: string;
+  domain: string;
+  color: string;
+  isActive: boolean; // Active = on battlefield, not yet defeated
+  spawnTime: number;
 }
 
-interface GhostState {
+// ============================================
+// ARENA STATE
+// ============================================
+interface ArenaState {
+  // Shadow Army
   ghosts: Ghost[];
   shadowCount: number;
   isCollapsed: boolean;
   cursor: { x: number; y: number };
-  
-  spawnGhost: (errorMsg?: string) => void;
+
+  // Domain & Waves
+  activeDomain: string;
+  currentWave: number;
+  isWaveActive: boolean;
+  errorsPerWave: number;
+  activeErrors: Ghost[]; // Errors currently on the battlefield
+
+  // Player Stats
+  playerXP: number;
+  playerLevel: number;
+  stability: number; // 0-100
+
+  // Actions
+  setDomain: (domain: string) => void;
+  startWave: () => void;
+  spawnError: () => void;
+  defeatError: (ghostId: string) => void;
+  missError: (ghostId: string) => void;
   updateGhosts: () => void;
   setCursor: (x: number, y: number) => void;
   reset: () => void;
 }
 
-const ERROR_MESSAGES = [
-  "SEGFAULT",
-  "NULL_PTR",
-  "FATAL_EXC",
-  "0x00452",
-  "STACK_OVERFLOW",
-  "HEAP_CORRUPTION",
-  "DAEMON_UNBOUND",
-  "VOID_RETURN"
-];
+// ============================================
+// XP & LEVEL CALCULATIONS
+// ============================================
+const getXPForLevel = (level: number) => Math.floor(100 * Math.pow(1.5, level - 1));
+const getLevelFromXP = (xp: number) => {
+  let level = 1;
+  let required = 100;
+  while (xp >= required) {
+    level++;
+    required = getXPForLevel(level);
+  }
+  return level;
+};
 
-export const useGhostStore = create<GhostState>((set) => ({
+// ============================================
+// THE STORE - Necromancer Engine
+// ============================================
+export const useGhostStore = create<ArenaState>((set, get) => ({
+  // Initial State
   ghosts: [],
   shadowCount: 0,
   isCollapsed: false,
   cursor: { x: 0, y: 0 },
+  activeDomain: 'frontend',
+  currentWave: 0,
+  isWaveActive: false,
+  errorsPerWave: 3,
+  activeErrors: [],
+  playerXP: 0,
+  playerLevel: 1,
+  stability: 100,
 
-  spawnGhost: (errorMsg) => set((state) => {
-    const newCount = state.shadowCount + 1;
-    const isNowCollapsed = newCount > 50;
+  // Set active domain
+  setDomain: (domain) => set({ activeDomain: domain }),
 
-    // "Extract" from the bottom-left/center (Terminal Area)
-    // Assuming terminal is mostly bottom-half. 
-    // We spawn them there and let them float out.
-    const startX = typeof window !== 'undefined' ? 50 + Math.random() * (window.innerWidth / 2) : 500;
-    const startY = typeof window !== 'undefined' ? window.innerHeight - 150 - Math.random() * 100 : 800;
+  // Start a new wave
+  startWave: () => {
+    const state = get();
+    if (state.isWaveActive) return;
 
-    const newGhost: Ghost = {
-      id: Math.random().toString(36).substring(7),
-      x: startX,
-      y: startY,
-      errorMsg: errorMsg || ERROR_MESSAGES[Math.floor(Math.random() * ERROR_MESSAGES.length)]
+    const newWave = state.currentWave + 1;
+    const errorsToSpawn = Math.min(3 + Math.floor(newWave / 2), 10); // Scale difficulty
+
+    set({
+      currentWave: newWave,
+      isWaveActive: true,
+      errorsPerWave: errorsToSpawn,
+      activeErrors: [],
+    });
+
+    // Spawn errors with delay
+    for (let i = 0; i < errorsToSpawn; i++) {
+      setTimeout(() => {
+        get().spawnError();
+      }, i * 800); // Stagger spawns
+    }
+  },
+
+  // Spawn a single error on the battlefield
+  spawnError: () => set((state) => {
+    const domain = ERROR_DOMAINS[state.activeDomain];
+    const errorMsg = domain.errors[Math.floor(Math.random() * domain.errors.length)];
+
+    // Spawn in center-ish area with some randomness
+    const centerX = typeof window !== 'undefined' ? window.innerWidth / 2 : 500;
+    const centerY = typeof window !== 'undefined' ? window.innerHeight / 2 : 400;
+
+    const newError: Ghost = {
+      id: Math.random().toString(36).substring(2, 9),
+      x: centerX + (Math.random() - 0.5) * 400,
+      y: centerY + (Math.random() - 0.5) * 200,
+      vx: 0,
+      vy: 0,
+      errorMsg,
+      domain: state.activeDomain,
+      color: domain.color,
+      isActive: true,
+      spawnTime: Date.now(),
     };
 
     return {
-      ghosts: [...state.ghosts, newGhost],
-      shadowCount: newCount,
-      isCollapsed: isNowCollapsed
+      activeErrors: [...state.activeErrors, newError],
+      stability: Math.max(0, state.stability - 2), // Each spawn hurts stability
     };
   }),
 
+  // Defeat an error - add to shadow army
+  defeatError: (ghostId) => set((state) => {
+    const error = state.activeErrors.find((e) => e.id === ghostId);
+    if (!error) return {};
+
+    // Convert to shadow
+    const shadow: Ghost = {
+      ...error,
+      isActive: false,
+    };
+
+    const newShadowCount = state.shadowCount + 1;
+    const xpGain = 10 + state.currentWave * 2;
+    const newXP = state.playerXP + xpGain;
+    const newLevel = getLevelFromXP(newXP);
+    const isNowCollapsed = newShadowCount >= 50;
+
+    // Check if wave is complete
+    const remainingActive = state.activeErrors.filter((e) => e.id !== ghostId);
+    const waveComplete = remainingActive.length === 0;
+
+    return {
+      ghosts: [...state.ghosts, shadow],
+      shadowCount: newShadowCount,
+      activeErrors: remainingActive,
+      playerXP: newXP,
+      playerLevel: newLevel,
+      stability: Math.min(100, state.stability + 1), // Defeating errors helps stability
+      isCollapsed: isNowCollapsed,
+      isWaveActive: !waveComplete,
+    };
+  }),
+
+  // Miss an error - it escapes, hurting stability
+  missError: (ghostId) => set((state) => {
+    const remainingActive = state.activeErrors.filter((e) => e.id !== ghostId);
+    const waveComplete = remainingActive.length === 0;
+
+    return {
+      activeErrors: remainingActive,
+      stability: Math.max(0, state.stability - 10), // Big penalty for missing
+      isWaveActive: !waveComplete,
+    };
+  }),
+
+  // Update ghost positions (Boids-like flocking)
   updateGhosts: () => set((state) => {
-    // Simple Boids-like behavior:
-    // 1. Attraction to Cursor (Monarch)
-    // 2. Random jitter (Chaos)
-    // 3. Velocity damping
-    
     if (state.ghosts.length === 0) return {};
 
     const cursor = state.cursor;
-    const newGhosts = state.ghosts.map(ghost => {
-        // Vector to cursor
-        const dx = cursor.x - ghost.x;
-        const dy = cursor.y - ghost.y;
-        const dist = Math.sqrt(dx * dx + dy * dy);
-        
-        // Attraction force (stronger if far, weaker if close to avoid piling)
-        // If collapsed (Monarch State), stronger attraction? Or explosion? 
-        // User said: "Constellation" -> interconnected.
-        const attraction = state.isCollapsed ? 0.05 : 0.02;
-        
-        let vx = (ghost.vx || 0) + dx * attraction * 0.01;
-        let vy = (ghost.vy || 0) + dy * attraction * 0.01;
+    const newGhosts = state.ghosts.map((ghost) => {
+      // Vector to cursor
+      const dx = cursor.x - ghost.x;
+      const dy = cursor.y - ghost.y;
 
-        // Random jitter (The "Ghost" twitch)
-        vx += (Math.random() - 0.5) * 2;
-        vy += (Math.random() - 0.5) * 2;
+      // Attraction force (stronger in Monarch state)
+      const attraction = state.isCollapsed ? 0.08 : 0.03;
 
-        // Damping (Friction)
-        vx *= 0.95;
-        vy *= 0.95;
+      let vx = ghost.vx + dx * attraction * 0.01;
+      let vy = ghost.vy + dy * attraction * 0.01;
 
-        // Update position
-        return {
-            ...ghost,
-            x: ghost.x + vx,
-            y: ghost.y + vy,
-            vx,
-            vy
-        };
+      // Random jitter (The "Ghost" twitch)
+      vx += (Math.random() - 0.5) * 1.5;
+      vy += (Math.random() - 0.5) * 1.5;
+
+      // Damping
+      vx *= 0.92;
+      vy *= 0.92;
+
+      return {
+        ...ghost,
+        x: ghost.x + vx,
+        y: ghost.y + vy,
+        vx,
+        vy,
+      };
     });
 
     return { ghosts: newGhosts };
@@ -108,5 +305,15 @@ export const useGhostStore = create<GhostState>((set) => ({
 
   setCursor: (x, y) => set({ cursor: { x, y } }),
 
-  reset: () => set({ ghosts: [], shadowCount: 0, isCollapsed: false })
+  reset: () => set({
+    ghosts: [],
+    shadowCount: 0,
+    isCollapsed: false,
+    currentWave: 0,
+    isWaveActive: false,
+    activeErrors: [],
+    playerXP: 0,
+    playerLevel: 1,
+    stability: 100,
+  }),
 }));

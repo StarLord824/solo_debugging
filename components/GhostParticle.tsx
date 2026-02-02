@@ -1,6 +1,7 @@
+'use client';
 import React from 'react';
+import { Ghost } from '@/store/useGhostStore';
 import { motion } from 'motion/react';
-import { useGhostStore, Ghost } from '@/store/useGhostStore';
 
 interface GhostParticleProps {
   ghost: Ghost;
@@ -9,24 +10,42 @@ interface GhostParticleProps {
 export const GhostParticle: React.FC<GhostParticleProps> = ({ ghost }) => {
   return (
     <motion.div
-      className="absolute pointer-events-none text-xs font-mono font-bold text-necro-purple/70 select-none z-50"
-      // Directly animate to the store's position. 
-      // Since store updates 60fps (ish), layout=true might be smoother or just `animate`.
-      animate={{ 
-        x: ghost.x, 
-        y: ghost.y,
-      }}
-      // Fast transition for responsive flocking
-      transition={{
-        duration: 0.1, 
-        ease: "linear"
-      }}
-      style={{ 
-        mixBlendMode: 'screen',
-        filter: 'blur(1px)' // Ethereal look
+      initial={{ opacity: 0, scale: 0 }}
+      animate={{ opacity: 1, scale: 1 }}
+      className="absolute pointer-events-none"
+      style={{
+        left: ghost.x,
+        top: ghost.y,
+        transform: 'translate(-50%, -50%)',
       }}
     >
-      {ghost.errorMsg}
+      {/* Glow effect */}
+      <div
+        className="absolute inset-0 rounded-full blur-lg opacity-50"
+        style={{
+          width: 24,
+          height: 24,
+          backgroundColor: ghost.color || '#a855f7',
+          transform: 'translate(-50%, -50%)',
+        }}
+      />
+      
+      {/* Core particle */}
+      <div
+        className="relative w-3 h-3 rounded-full mix-blend-screen"
+        style={{
+          backgroundColor: ghost.color || '#a855f7',
+          boxShadow: `0 0 10px ${ghost.color || '#a855f7'}, 0 0 20px ${ghost.color || '#a855f7'}`,
+        }}
+      />
+      
+      {/* Error code whisper */}
+      <div
+        className="absolute top-4 left-1/2 -translate-x-1/2 text-[8px] font-mono opacity-30 whitespace-nowrap"
+        style={{ color: ghost.color || '#a855f7' }}
+      >
+        {ghost.errorMsg.slice(0, 12)}
+      </div>
     </motion.div>
   );
 };

@@ -10,21 +10,77 @@
   --color-foreground: var(--foreground);
   --font-sans: var(--font-geist-sans);
   --font-mono: var(--font-share-tech-mono);
-  --color-necro-bg: #1a0b2e;
+  
+  /* Necro Theme */
+  --color-necro-bg: #0a0412;
   --color-necro-purple: #a855f7;
   --color-necro-light: #d8b4fe;
   --color-necro-void: #000000;
-}
-
-@media (prefers-color-scheme: dark) {
-  :root {
-    --background: #0a0a0a;
-    --foreground: #ededed;
-  }
+  
+  /* Domain Colors */
+  --color-domain-frontend: #a855f7;
+  --color-domain-backend: #22c55e;
+  --color-domain-database: #3b82f6;
+  --color-domain-devops: #f97316;
 }
 
 body {
-  background: var(--background);
+  background: var(--color-necro-bg);
   color: var(--foreground);
-  font-family: Arial, Helvetica, sans-serif;
+  font-family: 'Share Tech Mono', monospace;
+  overflow: hidden;
+}
+
+/* Glitch Animation for Errors */
+@keyframes glitch {
+  0% { transform: translate(0); }
+  20% { transform: translate(-2px, 2px); }
+  40% { transform: translate(-2px, -2px); }
+  60% { transform: translate(2px, 2px); }
+  80% { transform: translate(2px, -2px); }
+  100% { transform: translate(0); }
+}
+
+@keyframes flicker {
+  0%, 100% { opacity: 1; }
+  50% { opacity: 0.8; }
+  75% { opacity: 0.9; }
+}
+
+@keyframes pulse-glow {
+  0%, 100% { box-shadow: 0 0 20px currentColor; }
+  50% { box-shadow: 0 0 40px currentColor, 0 0 60px currentColor; }
+}
+
+.animate-glitch {
+  animation: glitch 0.3s ease-in-out infinite;
+}
+
+.animate-flicker {
+  animation: flicker 0.1s ease-in-out infinite;
+}
+
+.animate-pulse-glow {
+  animation: pulse-glow 2s ease-in-out infinite;
+}
+
+/* Scanline overlay */
+.scanlines {
+  background: 
+    linear-gradient(rgba(18,16,16,0) 50%, rgba(0,0,0,0.25) 50%),
+    linear-gradient(90deg, rgba(255,0,0,0.06), rgba(0,255,0,0.02), rgba(0,0,255,0.06));
+  background-size: 100% 4px, 3px 100%;
+  pointer-events: none;
+}
+
+/* Error Card Styling */
+.error-card {
+  backdrop-filter: blur(10px);
+  border: 1px solid currentColor;
+  box-shadow: 0 0 30px currentColor;
+}
+
+.error-card:hover {
+  box-shadow: 0 0 50px currentColor;
+  transform: scale(1.02);
 }
