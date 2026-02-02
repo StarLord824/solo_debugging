@@ -1,9 +1,9 @@
-import { Dashboard } from "@/components/Dashboard";
+import { NecroTerminal } from "@/components/NecroTerminal";
 
 export default function Home() {
   return (
     <main>
-      <Dashboard />
+      <NecroTerminal />
     </main>
   );
 }
